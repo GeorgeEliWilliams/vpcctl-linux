@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-vpcctl.py - A lightweight Linux-based VPC simulator CLI for EC2 or Linux hosts.
+vpcctl.py - A lightweight Linux-based VPC simulator CLI for Linux hosts.
 Implements:
 - Virtual VPCs with bridges
 - Subnets as network namespaces
