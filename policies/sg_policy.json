@@ -1,5 +1,5 @@
 {
-  "subnet": "vpc1-public",
+  "subnet": "demo-vpc1-subnetA",
   "ingress": [
     {
       "port": 80,
