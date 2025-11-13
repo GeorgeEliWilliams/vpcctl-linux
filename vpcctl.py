@@ -10,7 +10,6 @@ Simulates AWS-like VPC components using Linux networking tools:
 - Security group/firewall rules from JSON
 - Idempotent cleanup operations
 
-Author: George Elikplim Williams
 """
 
 import argparse
