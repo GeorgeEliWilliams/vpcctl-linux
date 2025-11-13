@@ -33,45 +33,45 @@ Ensure you’re running as root or sudo user, since network configuration requir
 
 ## Quick Start (on EC2 or Linux)
 
-# Clone repository
+### Clone repository
 ```bash
 git clone https://github.com/<your-username>/<your-repo>.git
 cd <your-repo>
 ```
 
-# Setup environment
+### Setup environment
 ```bash
 make setup
 ```
 
-# Run automated test sequence
+### Run automated test sequence
 ```bash
 make test
 ```
 
-# (Optional) Apply security group policy
+### (Optional) Apply security group policy
 ```bash
 make policy
 ```
 
-# Cleanup environment
+### Cleanup environment
 ```bash
 make cleanup
 ```
 
 ## Example Commands
 
-# Create a VPC
+### Create a VPC
 ```bash
 sudo ./vpcctl.py --create-vpc myvpc 10.0.0.0/16
 ```
 
-# Add a public subnet
+### Add a public subnet
 ```bash
 sudo ./vpcctl.py --add-subnet myvpc public1 10.0.1.0/24 public
 ```
 
-# Peer two VPCs
+### Peer two VPCs
 ```bash
 sudo ./vpcctl.py --peer-vpcs myvpc othervpc
 ```
