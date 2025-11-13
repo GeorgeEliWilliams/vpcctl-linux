@@ -1,42 +1,41 @@
-# Makefile to automate VPC setup, testing, and cleanup for vpc
+# Makefile for Linux-based VPC Simulator
+# Automates setup, execution, and cleanup of VPC operations.
+# Author: George Elikplim Williams
 
-VPCCTL = ./vpcctl.py
+PYTHON := python3
+SCRIPT := ./vpcctl.py
+TEST_SCRIPT := ./tests/test_vpcctl.sh
+POLICY_FILE := ./policies/sg_policy.json
 
-.PHONY: all create-vpc add-subnets apply-policy peer cleanup test
+# Default target
+help:
+	@echo ""
+	@echo "Available commands:"
+	@echo "  make setup        - Install dependencies and ensure required tools are available"
+	@echo "  make test         - Run the test script for VPC simulation"
+	@echo "  make cleanup      - Clean up all created VPCs and namespaces"
+	@echo "  make policy       - Apply sample security group policy"
+	@echo "  make help         - Show this help message"
+	@echo ""
 
-all: create-vpc add-subnets apply-policy peer test
+# Install dependencies (for Amazon Linux or Ubuntu)
+setup:
+	sudo yum install -y bridge-utils iproute iptables || sudo apt install -y bridge-utils iproute2 iptables
+	chmod +x $(SCRIPT)
+	chmod +x $(TEST_SCRIPT)
+	@echo "[INFO] Setup complete."
 
-# 1. Create VPCs
-create-vpc:
-	@echo "=== Creating VPCs ==="
-	$(VPCCTL) --create-vpc vpc1 10.0.0.0/16
-	$(VPCCTL) --create-vpc vpc2 10.1.0.0/16
-
-# 2. Add subnets
-add-subnets:
-	@echo "=== Adding Subnets ==="
-	$(VPCCTL) --add-subnet vpc1 public 10.0.1.2/24 public
-	$(VPCCTL) --add-subnet vpc1 private 10.0.2.2/24 private
-	$(VPCCTL) --add-subnet vpc2 public 10.1.1.2/24 public
-	$(VPCCTL) --add-subnet vpc2 private 10.1.2.2/24 private
-
-# 3. Apply firewall policies
-apply-policy:
-	@echo "=== Applying Firewall Policies ==="
-	$(VPCCTL) --apply-policy policies/example_policy.json
-
-# 4. Peer VPCs
-peer:
-	@echo "=== Peering VPCs ==="
-	$(VPCCTL) --peer-vpcs vpc1 vpc2
-
-# 5. Test connectivity (basic ping/curl)
+# Run functional test
 test:
-	@echo "=== Running Basic Tests ==="
-	ip netns exec vpc1-public ping -c 2 10.0.2.2 || true
-	ip netns exec vpc1-public curl -s http://10.0.1.2:8000/ || true
+	sudo bash $(TEST_SCRIPT)
 
-# 6. Cleanup
+# Apply policy example
+policy:
+	sudo $(PYTHON) $(SCRIPT) --apply-policy $(POLICY_FILE)
+
+# Full cleanup
 cleanup:
-	@echo "=== Cleaning up ==="
-	$(VPCCTL) --cleanup
+	sudo $(PYTHON) $(SCRIPT) --cleanup
+	@echo "[INFO] Cleanup complete."
+
+.PHONY: help setup test cleanup policy
