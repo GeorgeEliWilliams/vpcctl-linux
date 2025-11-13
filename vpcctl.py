@@ -10,7 +10,6 @@ Simulates AWS-like VPC components using Linux networking tools:
 - Security group/firewall rules from JSON
 - Idempotent cleanup operations
 
-Author: George Elikplim Williams
 """
 
 import argparse
@@ -19,7 +18,6 @@ import json
 import os
 import sys
 
-# ==========================================================
 # UTILITY FUNCTIONS
 # ==========================================================
 def run(cmd, check=True):
@@ -59,6 +57,17 @@ def exists_bridge(bridge):
 def cleanup_veth(veth_name):
     """Remove a veth interface if it already exists (ensures idempotency)."""
     run(f"ip link del {veth_name}", check=False)
+
+
+def short_name(prefix, *parts, max_len=15):
+    """
+    Generate a short, valid Linux interface name.
+    - Keeps total name length <= 15 characters.
+    - Removes unsupported characters like '-' or '_'.
+    """
+    safe_parts = "".join(p.replace("-", "")[:4] for p in parts)
+    name = f"{prefix}{safe_parts}"[:max_len]
+    return name
 
 
 # ==========================================================
@@ -115,9 +124,11 @@ def add_subnet(vpc_name, subnet_name, cidr, subnet_type="private"):
     """
     bridge = f"{vpc_name}-br"
     ns = f"{vpc_name}-{subnet_name}"
-    veth_host = f"veth-{ns}"
-    veth_ns = f"veth-{ns}-ns"
-    
+
+    # Generate shortened veth names (max 15 chars)
+    veth_host = short_name("vh", vpc_name, subnet_name)
+    veth_ns = short_name("vn", vpc_name, subnet_name)
+
     print(f"[INFO] Adding subnet '{subnet_name}' ({subnet_type}) with CIDR {cidr}")
     
     # Ensure namespace exists
@@ -134,112 +145,10 @@ def add_subnet(vpc_name, subnet_name, cidr, subnet_type="private"):
     run(f"ip link set {veth_ns} netns {ns}")
     run(f"ip netns exec {ns} ip link set {veth_ns} up")
 
-    # Assign IP address inside namespace (using first host address in CIDR)
+    # Assign IP address inside namespace (using base IP in CIDR)
     base_ip = cidr.split("/")[0]
     run(f"ip netns exec {ns} ip addr add {base_ip} dev {veth_ns}")
     
     # Default route via VPC bridge gateway (assuming .1)
     gateway = f"{base_ip[:-1]}1"
-    run(f"ip netns exec {ns} ip route add default via {gateway}")
-
-    print(f"[SUCCESS] Subnet '{subnet_name}' added successfully to VPC '{vpc_name}'.")
-
-
-def configure_nat(subnet_ns, internet_iface):
-    """
-    Enable NAT for a subnet to allow Internet access (for 'public' subnets).
-    Example:
-        python3 vpcctl.py --nat subnetA eth0
-    """
-    print(f"[INFO] Configuring NAT for namespace '{subnet_ns}' via interface '{internet_iface}'")
-    run(f"ip netns exec {subnet_ns} iptables -t nat -A POSTROUTING -o {internet_iface} -j MASQUERADE")
-    print(f"[SUCCESS] NAT configured for '{subnet_ns}'.")
-
-
-def peer_vpcs(vpc1, vpc2):
-    """
-    Peer two VPCs by connecting their bridges.
-    Example:
-        python3 vpcctl.py --peer-vpcs vpc1 vpc2
-    """
-    br1 = f"{vpc1}-br"
-    br2 = f"{vpc2}-br"
-    peer0 = f"peer-{vpc1}-{vpc2}-0"
-    peer1 = f"peer-{vpc1}-{vpc2}-1"
-    
-    print(f"[INFO] Creating VPC peering connection between '{vpc1}' and '{vpc2}'")
-    
-    cleanup_veth(peer0)
-    run(f"ip link add {peer0} type veth peer name {peer1}")
-    run(f"ip link set {peer0} master {br1}")
-    run(f"ip link set {peer1} master {br2}")
-    run(f"ip link set {peer0} up")
-    run(f"ip link set {peer1} up")
-    print(f"[SUCCESS] VPCs '{vpc1}' and '{vpc2}' peered successfully.")
-
-
-def apply_policy(policy_file):
-    """
-    Apply firewall/security group rules from a JSON policy file.
-    Example JSON:
-    {
-        "subnet": "vpc1-subnetA",
-        "ingress": [
-            {"protocol": "tcp", "port": 22, "action": "allow"},
-            {"protocol": "tcp", "port": 80, "action": "deny"}
-        ]
-    }
-    """
-    print(f"[INFO] Applying policy from {policy_file}")
-    with open(policy_file) as f:
-        policy = json.load(f)
-    
-    subnet = policy["subnet"]
-    ingress = policy.get("ingress", [])
-    
-    for rule in ingress:
-        port = rule["port"]
-        proto = rule["protocol"]
-        action = rule["action"]
-        if action == "allow":
-            run(f"ip netns exec {subnet} iptables -A INPUT -p {proto} --dport {port} -j ACCEPT")
-        else:
-            run(f"ip netns exec {subnet} iptables -A INPUT -p {proto} --dport {port} -j DROP")
-    print(f"[SUCCESS] Security policy applied to subnet '{subnet}'.")
-
-
-# ==========================================================
-# CLI ENTRYPOINT
-# ==========================================================
-def main():
-    parser = argparse.ArgumentParser(description="vpcctl - Linux VPC Simulation CLI")
-    parser.add_argument("--create-vpc", nargs=2, metavar=("VPC_NAME", "CIDR_BLOCK"))
-    parser.add_argument("--delete-vpc", metavar="VPC_NAME")
-    parser.add_argument("--add-subnet", nargs=4, metavar=("VPC_NAME", "SUBNET_NAME", "CIDR", "TYPE"))
-    parser.add_argument("--peer-vpcs", nargs=2, metavar=("VPC1", "VPC2"))
-    parser.add_argument("--apply-policy", metavar="JSON_FILE")
-    parser.add_argument("--cleanup", action="store_true")
-
-    args = parser.parse_args()
-
-    if args.create_vpc:
-        create_vpc(*args.create_vpc)
-    elif args.delete_vpc:
-        delete_vpc(args.delete_vpc)
-    elif args.add_subnet:
-        add_subnet(*args.add_subnet)
-    elif args.peer_vpcs:
-        peer_vpcs(*args.peer_vpcs)
-    elif args.apply_policy:
-        apply_policy(args.apply_policy)
-    elif args.cleanup:
-        print("[INFO] Performing full cleanup of all virtual VPCs and namespaces...")
-        run("ip netns list | xargs -n1 ip netns delete", check=False)
-        run("brctl show | tail -n +2 | awk '{print $1}' | xargs -n1 ip link del", check=False)
-        print("[SUCCESS] Cleanup completed.")
-    else:
-        parser.print_help()
-
-
-if __name__ == "__main__":
-    main()
+    run(f"ip netns exec {ns} ip rout
