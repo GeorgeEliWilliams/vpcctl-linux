@@ -19,9 +19,7 @@ import json
 import os
 import sys
 
-# ---------------------------
 # Utility functions
-# ---------------------------
 def run(cmd, check=True):
     """Run shell command with logging"""
     print(f"[CMD] {cmd}")
@@ -52,9 +50,7 @@ def cleanup_veth(veth_name):
     """Remove veth if it exists"""
     run(f"ip link del {veth_name}", check=False)
 
-# ---------------------------
 # Core Functions
-# ---------------------------
 def create_vpc(vpc_name, cidr_block):
     """Create a new VPC with a bridge"""
     bridge = f"{vpc_name}-br"
@@ -157,9 +153,7 @@ def apply_policy(policy_file):
         else:
             run(f"ip netns exec {subnet} iptables -A INPUT -p {proto} --dport {port} -j DROP")
 
-# ---------------------------
 # CLI Interface
-# ---------------------------
 def main():
     parser = argparse.ArgumentParser(description="vpcctl - Linux VPC CLI")
     parser.add_argument("--create-vpc", nargs=2, metavar=("VPC_NAME", "CIDR_BLOCK"))
