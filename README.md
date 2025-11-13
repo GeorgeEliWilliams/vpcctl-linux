@@ -4,7 +4,7 @@
 
 ## 📖 Overview
 This project simulates **AWS Virtual Private Cloud (VPC)** behavior on any **Linux or EC2 instance** using native networking tools like `ip`, `bridge-utils`, and `iptables`.  
-It provides a CLI (`vpcctl.py`) for creating VPCs, subnets, peering connections, and applying security group rules — all locally without needing AWS resources.
+It provides a CLI (`vpcctl.py`) for creating VPCs, subnets, peering connections, and applying security group rules.
 
 ---
 
