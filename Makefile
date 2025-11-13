@@ -1,6 +1,5 @@
 # Makefile for Linux-based VPC Simulator
 # Automates setup, execution, and cleanup of VPC operations.
-# Author: George Elikplim Williams
 
 PYTHON := python3
 SCRIPT := ./vpcctl.py
