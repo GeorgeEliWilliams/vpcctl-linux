@@ -8,18 +8,6 @@ It provides a CLI (`vpcctl.py`) for creating VPCs, subnets, peering connections,
 
 ---
 
-## 🧱 Repository Structure
-project_root/
-│── vpcctl.py # Core Python CLI for managing virtual VPCs
-│── Makefile # Automates setup, testing, and cleanup
-├── policies/
-│ └── sg_policy.json # Sample security group rules in JSON format
-├── tests/
-│ └── test_vpcctl.sh # Automated test script for all major operations
-└── README.md # Project documentation
-
-
----
 
 ## ⚙️ Prerequisites
 This project is designed for **Linux** 
