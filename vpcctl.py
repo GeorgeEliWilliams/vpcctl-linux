@@ -92,7 +92,7 @@ def delete_vpc(vpc_name):
         print(f"[WARN] Bridge {bridge} not found — skipping deletion.")
 
 def add_subnet(vpc_name, subnet_name, cidr, subnet_type="private"):
-    """Add a subnet (namespace) and attach it to a VPC bridge."""
+    """Add a subnet (namespace) and attach it to a VPC bridge with proper gateway."""
     bridge = f"{vpc_name}-br"
     ns = f"{vpc_name}-{subnet_name}"
 
@@ -101,24 +101,37 @@ def add_subnet(vpc_name, subnet_name, cidr, subnet_type="private"):
     veth_ns = short_name("vn", vpc_name, subnet_name)
 
     print(f"[INFO] Adding subnet '{subnet_name}' ({subnet_type}) with CIDR {cidr}")
+
+    # Ensure namespace exists
     if not exists_ns(ns):
         run(f"ip netns add {ns}")
     else:
         print(f"[INFO] Namespace {ns} already exists.")
 
+    # Delete old veth if exists
     cleanup_veth(veth_host)
+
+    # Create veth pair
     run(f"ip link add {veth_host} type veth peer name {veth_ns}")
     run(f"ip link set {veth_host} master {bridge}")
     run(f"ip link set {veth_host} up")
     run(f"ip link set {veth_ns} netns {ns}")
     run(f"ip netns exec {ns} ip link set {veth_ns} up")
 
-    base_ip = cidr.split("/")[0]
-    run(f"ip netns exec {ns} ip addr add {base_ip} dev {veth_ns}")
-    
-    # Default route via .1 gateway
-    gateway = f"{base_ip[:-1]}1"
-    run(f"ip netns exec {ns} ip route add default via {gateway}")
+    # Calculate gateway and host IPs
+    base_ip = cidr.split("/")[0]          # e.g., "10.0.1.0"
+    octets = base_ip.split(".")
+    gateway_ip = f"{octets[0]}.{octets[1]}.{octets[2]}.1"
+    host_ip = f"{octets[0]}.{octets[1]}.{octets[2]}.2"
+
+    # Assign gateway IP to bridge if not already assigned
+    run(f"ip addr add {gateway_ip}/{cidr.split('/')[1]} dev {bridge}", check=False)
+
+    # Assign IP to namespace veth
+    run(f"ip netns exec {ns} ip addr add {host_ip}/{cidr.split('/')[1]} dev {veth_ns}")
+
+    # Set default route in namespace
+    run(f"ip netns exec {ns} ip route add default via {gateway_ip}")
 
     print(f"[SUCCESS] Subnet '{subnet_name}' added successfully to VPC '{vpc_name}'.")
 
